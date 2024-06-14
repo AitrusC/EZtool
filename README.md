@@ -1,5 +1,5 @@
 # EZtool
-maya里的简单工具
+maya自用工具
 import EZtool
 reload(EZtool)
 EZtool.showUI.show()
