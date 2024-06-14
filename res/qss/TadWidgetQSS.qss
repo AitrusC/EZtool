@@ -1,0 +1,10 @@
+QListWidget {
+    outline: 0px;
+    min-width: 50px;
+    max-width: 50px;
+    background: rgb(87, 85, 91);
+}
+QListWidget::Item:selected {
+    background: rgb(107, 105, 111);
+    border-left: 6px solid rgb(77, 75, 81);
+}
