@@ -316,7 +316,7 @@ class ToolControl(object):
             pos = cmds.manipMoveContext("Move", q = True, p = True)
             cmds.scale(axial[0] * scale or 1, axial[1] * scale or 1, axial[2] * scale or 1, s + ".cv[*]", r = True,
                        p = pos)
-4
+
 
 def set_selected_controls(*args, **kwargs):
     """
