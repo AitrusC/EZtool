@@ -7,6 +7,7 @@
 import os
 import maya.cmds as cmds
 from maya.api.OpenMaya import *
+from . import uiWidget
 import json
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -79,7 +80,7 @@ class ToolControl(object):
         """
         self.uuid = None
         keys = [("t", "transform"), ("n", "name"), ("p", "parent"), ("s", "shape"), ("ot", "other"), ("c", "color"),
-                ("r", "radius"), ("ro", "rotate"), ("o", "offset"), ("l", "locked"), ("ou", "outputs")]
+                ("r", "radius"), ("ro", "rotate"), ("o", "offset"), ("l", "locked"), ("ou", "outputs"), ("s", "scale")]
         for index, (short, long) in enumerate(keys):
             # 依次获取索引，短参， 长参
             arg = kwargs.get(long, kwargs.get(short, args[index] if index < len(args) else None))
@@ -200,7 +201,7 @@ class ToolControl(object):
         for shape_n in self.get_shape_names():
             if cmds.getAttr(shape_n + ".overrideEnabled"):
                 if cmds.getAttr(shape_n + ".overrideRGBColors"):
-                    return [cmds.getAttr(shape_n + ".overrideColorRGB"), True]
+                    return [cmds.getAttr(shape_n + ".overrideColorRGB")[0], True]
                 else:
                     return [cmds.getAttr(shape_n + ".overrideColor"), False]
 
@@ -230,7 +231,7 @@ class ToolControl(object):
             destination = cmds.listConnections(shape, d = True, p = True, c = True, s = False) or []
             # 获取输入接口
             source = cmds.listConnections(shape, d = False, p = True, c = True, s = True) or []
-            # 将属性转化为[(输出如属性, 输出如节点.输出属性)]
+            # 将属性转化为[(输出入属性, 输出入节点.输出入属性)]
             destination = [destination[i:i + 2] for i in range(0, len(destination), 2)]
             destination = [(cmds.attributeName(src, l = True), dst) for src, dst in destination]
             source = [source[i:i + 2] for i in range(0, len(source), 2)]
@@ -286,6 +287,36 @@ class ToolControl(object):
             for i, p in enumerate(points):
                 cmds.xform(shape + ".cv[{0}]".format(i), t = p)
 
+    def set_rotate(self, rotate):
+        """
+        旋转控制器
+        :param rotate: [轴向, 度数]
+        :return: self
+        """
+        axial, rotate = rotate[0], int(rotate[1])
+        for s in self.get_shape_names():
+            cmds.rotate(rotate * axial[0], rotate * axial[1], rotate * axial[2], s + ".cv[*]", r = True, ocp = True,
+                        os = True)
+        return self
+
+    def set_scale(self, scale):
+        """
+        缩放控制器
+        :param scale: [轴向,缩放数值]
+        :return: self
+        """
+        axial, scale = scale
+        mods = cmds.getModifiers()
+        if (mods & 4) > 0:
+            scale = 1.0 / scale
+        for s in self.get_shape_names():
+            cmds.select(s, r = True)
+            cmds.refresh()
+            cmds.setToolTo("moveSuperContext")
+            pos = cmds.manipMoveContext("Move", q = True, p = True)
+            cmds.scale(axial[0] * scale or 1, axial[1] * scale or 1, axial[2] * scale or 1, s + ".cv[*]", r = True,
+                       p = pos)
+4
 
 def set_selected_controls(*args, **kwargs):
     """
@@ -325,6 +356,30 @@ def createControl(shape):
     set_selected_controls("color", "outputs", "radius", shape = shape)
 
 
+@undo
+def setRotateControl(axial, rotate):
+    """
+    旋转控制器
+    :param axial: 旋转轴向
+    :param rotate: 旋转度数
+    :return:
+    """
+    cmds.ls(sl = True, l = True, type = ["joint", "transform"])
+    set_selected_controls(rotate = [axial, rotate])
+
+
+@undo
+def setScaleControl(axial, scale):
+    """
+    缩放控制器
+    :param axial: 缩放轴向
+    :param scale: 缩放系数
+    :return:
+    """
+    cmds.ls(sl = True, l = True, type = ["joint", "transform"])
+    set_selected_controls(scale = [axial, scale])
+
+
 class ControlUI(QWidget):
     """
     控制器
@@ -336,7 +391,11 @@ class ControlUI(QWidget):
 
         self._createListWidget()
         self._colorPicker()
+        self._createSplitter()
         self._createPushBtn()
+        self._createLabel()
+        self._createLineEdit()
+        self._createCBWidgets()
         self._createConnect()
 
         self._createLayout()
@@ -356,6 +415,14 @@ class ControlUI(QWidget):
         :return:
         """
         self.colorPik = ColorPickerWidget()
+
+    def _createSplitter(self):
+        """
+        分割线
+        """
+        self.splitter1 = uiWidget.Splitter(rgb = (54, 52, 61), w = self.width(), h = 10)
+        self.splitter2 = uiWidget.Splitter(rgb = (54, 52, 61), w = self.width(), h = 10)
+        self.splitter3 = uiWidget.Splitter(rgb = (54, 52, 61), w = self.width(), h = 10)
 
     def _createPushBtn(self):
         """
@@ -378,7 +445,58 @@ class ControlUI(QWidget):
                             }"""
         self.setColorP = QPushButton(u"自定义颜色")
         self.setColorP.setFixedHeight(35)
+        # 旋转
+        self.rotateX = QPushButton(u"X")
+        self.rotateY = QPushButton(u"Y")
+        self.rotateZ = QPushButton(u"Z")
+        # 缩放
+        self.scaleC = QPushButton(u"缩放")
+        # 设置样式
         self.setColorP.setStyleSheet(qss)
+        self.rotateX.setStyleSheet(qss)
+        self.rotateY.setStyleSheet(qss)
+        self.rotateZ.setStyleSheet(qss)
+        self.scaleC.setStyleSheet(qss)
+
+    def _createLabel(self):
+        """
+        标签
+        :return:
+        """
+        qss = "QLabel { color: rgb(204, 204, 214); font: bold 10pt \"Microsoft YaHei\"; }"
+        self.rotateL = QLabel(u"旋转控制器：")
+        self.rotateL.setStyleSheet(qss)
+        self.scaleL = QLabel(u"缩放控制器：")
+        self.scaleL.setStyleSheet(qss)
+
+    def _createLineEdit(self):
+        """
+        输入框
+        :return:
+        """
+        qss = "QLabel { color: rgb(204, 204, 214); font: bold 10pt \"Microsoft YaHei\"; }"
+        self.rotateLE = QLineEdit()
+        self.rotateLE.setFixedWidth(100)
+        self.rotateLE.setText("90")
+        self.rotateLE.setValidator(QIntValidator())
+        self.rotateLE.setStyleSheet(qss)
+
+        self.scaleLE = QLineEdit()
+        self.scaleLE.setFixedWidth(75)
+        self.scaleLE.setText("1.1")
+        # 创建一个 QDoubleValidator 对象,设置范围为 [0.0, 2147483647.0]，小数点后1位
+        doubleValidator = QDoubleValidator(0.0, 2147483647.0, 1)
+        doubleValidator.setNotation(QDoubleValidator.StandardNotation)
+        self.scaleLE.setValidator(doubleValidator)
+        self.scaleLE.setStyleSheet(qss)
+
+    def _createCBWidgets(self):
+        """
+        下拉框
+        :return:
+        """
+        self.scaleXYZ = QComboBox()
+        self.scaleXYZ.addItems(["XYZ", "X", "Y", "Z"])
 
     def _createConnect(self):
         """
@@ -386,6 +504,20 @@ class ControlUI(QWidget):
         :return:
         """
         self.setColorP.clicked.connect(lambda c: setColorBySelected([self.colorPik.getRgb, True]))
+        self.rotateX.clicked.connect(lambda r: setRotateControl([1, 0, 0], self.rotateLE.text()))
+        self.rotateY.clicked.connect(lambda r: setRotateControl([0, 1, 0], self.rotateLE.text()))
+        self.rotateZ.clicked.connect(lambda r: setRotateControl([0, 0, 1], self.rotateLE.text()))
+        self.scaleC.clicked.connect(self._scaleConnect)
+
+    def _scaleConnect(self):
+        """
+        缩放
+        :return:
+        """
+        axial = [[1, 1, 1], [1, 0, 0], [0, 1, 0], [0, 0, 1]]
+        axial = axial[self.scaleXYZ.currentIndex()]
+        scale = float(self.scaleLE.text())
+        setScaleControl(axial, scale)
 
     def _createLayout(self):
         """
@@ -399,6 +531,25 @@ class ControlUI(QWidget):
         self.mainLayout.addWidget(self.colorList)
         self.mainLayout.addWidget(self.colorPik)
         self.mainLayout.addWidget(self.setColorP)
+
+        self.mainLayout.addWidget(self.splitter1)
+        self.hboxLayout = QHBoxLayout()
+        self.mainLayout.addLayout(self.hboxLayout)
+        self.hboxLayout.addWidget(self.rotateL)
+        self.hboxLayout.addWidget(self.rotateX)
+        self.hboxLayout.addWidget(self.rotateY)
+        self.hboxLayout.addWidget(self.rotateZ)
+        self.hboxLayout.addWidget(self.rotateLE)
+
+        self.mainLayout.addWidget(self.splitter2)
+        self.hboxLayout2 = QHBoxLayout()
+        self.mainLayout.addLayout(self.hboxLayout2)
+        self.hboxLayout2.addWidget(self.scaleL)
+        self.hboxLayout2.addWidget(self.scaleC)
+        self.hboxLayout2.addWidget(self.scaleXYZ)
+        self.hboxLayout2.addWidget(self.scaleLE)
+
+        self.mainLayout.addWidget(self.splitter3)
 
 
 class PixmapList(QListWidget):
