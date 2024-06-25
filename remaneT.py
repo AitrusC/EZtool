@@ -12,6 +12,25 @@ from PySide2.QtCore import *
 from PySide2.QtWidgets import *
 
 
+def undo(fun):
+    u"""
+    回撤
+    """
+
+    def undo_fun(*args, **kwargs):
+        # 打开undo
+        cmds.undoInfo(ock = True)
+        # 记录选择物体
+        long_names = cmds.ls(sl = 1, l = 1)
+        fun(*args, **kwargs)
+        # 保持选择物体
+        cmds.select(cmds.ls(long_names))
+        # 关闭undo
+        cmds.undoInfo(cck = True)
+
+    return undo_fun
+
+
 class ReNameUI(QWidget):
     """
     重命名
@@ -288,6 +307,7 @@ def checkDuplicateName(obj):
         return obj
 
 
+@undo
 def renameNum(num, newName):
     """
     重命名
@@ -299,13 +319,15 @@ def renameNum(num, newName):
 
     """
     selection = cmds.ls(sl = True)
+    uuids = cmds.ls(selection, uid = True)
     number = 1
-    for sel in selection:
+    for index, sel in enumerate(selection):
         name = "{0}_{1:0>{2}}".format(newName, number, num)
-        cmds.rename(sel, name)
+        cmds.rename(cmds.ls(uuids[index], l = True), name)
         number += 1
 
 
+@undo
 def addSuffix(text):
     """
     添加后缀
@@ -316,15 +338,14 @@ def addSuffix(text):
 
     """
     selection = cmds.ls(sl = True, sn = True)
-    for sel in selection:
+    uuids = cmds.ls(selection, uid = True)
+    for index, sel in enumerate(selection):
         trueName = checkDuplicateName(sel)
         newName = trueName + text
-        try:
-            cmds.rename(sel, newName)
-        except:
-            pass
+        cmds.rename(cmds.ls(uuids[index], l = True), newName)
 
 
+@undo
 def addPrefix(text):
     """
     添加前缀
@@ -335,15 +356,14 @@ def addPrefix(text):
 
     """
     selection = cmds.ls(sl = True, sn = True)
-    for sel in selection:
+    uuids = cmds.ls(selection, uid = True)
+    for index, sel in enumerate(selection):
         trueName = checkDuplicateName(sel)
         newName = text + trueName
-        try:
-            cmds.rename(sel, newName)
-        except:
-            pass
+        cmds.rename(cmds.ls(uuids[index], l = True), newName)
 
 
+@undo
 def replaceName(*args):
     """
 
@@ -356,16 +376,16 @@ def replaceName(*args):
     search, replace, getID = args
     if getID == 1:
         selection = cmds.ls(sl = True, sn = True)
+        uuids = cmds.ls(selection, uid = True)
     if getID == 2:
         cmds.select(hi = True)
         selection = cmds.ls(sl = True, sn = True)
+        uuids = cmds.ls(selection, uid = True)
     if getID == 3:
         cmds.select(ado = True, hi = True)
         selection = cmds.ls(sl = True, sn = True)
-    for sel in selection:
+        uuids = cmds.ls(selection, uid = True)
+    for index, sel in enumerate(selection):
         trueName = checkDuplicateName(sel)
         newName = trueName.replace(search, replace)
-        try:
-            cmds.rename(sel, newName)
-        except:
-            pass
+        cmds.rename(cmds.ls(uuids[index]), newName)
