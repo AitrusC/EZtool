@@ -88,24 +88,24 @@ class ToolControl(object):
                 # 如果 arg 不为None，则执行对应方法
                 getattr(self, "set_" + long)(arg)
 
-    def edit_shape_by_copy_ctrl(self, callback):
+    def editShapeByCopyCtrl(self, callback):
         """
 
         :param callback: 回调函数, 用来修改copy_ctrl的位移,旋转,缩放
         :return:
         """
         # 创建一个临时控制器, 复制控制器形态
-        copy_ctrl = ToolControl(shape = self.get_shape())
+        copyCtrl = ToolControl(shape = self.get_shape())
         # 执行回调函数,对控制器位移,旋转,缩放进行修改
-        callback(copy_ctrl.get_transform())
+        callback(copyCtrl.get_transform())
         # 冻结copy_ctrl变换
-        cmds.makeIdentity(copy_ctrl.get_transform(), apply = True, t = True, r = True, s = True)
-        cmds.xform(copy_ctrl.get_transform(), piv = [0, 0, 0])
+        cmds.makeIdentity(copyCtrl.get_transform(), apply = True, t = True, r = True, s = True)
+        cmds.xform(copyCtrl.get_transform(), piv = [0, 0, 0])
         # 设置控制器形态为临时控制器形态, 保留颜色与输出
-        ToolControl(self.get_transform(), shape = copy_ctrl.get_shape(), color = self.get_color(),
+        ToolControl(self.get_transform(), shape = copyCtrl.get_shape(), color = self.get_color(),
                     outputs = self.get_outputs())
         # 删除临时控制器
-        cmds.delete(copy_ctrl.get_transform())
+        cmds.delete(copyCtrl.get_transform())
 
     def set_transform(self, transform):
         """
@@ -169,13 +169,14 @@ class ToolControl(object):
         # 删除原有shape
         if self.get_shape_names():
             cmds.delete(self.get_shape_names())
-        # 获取对应json数据
-        dataFile = os.path.abspath(__file__ + "/../res/Cdata/{shape}.json".format(shape = shape))
-        if os.path.isfile(dataFile):
-            with open(dataFile, "r") as f:
-                shape = json.load(f)
-        else:
-            shape = []
+        # shape是否为list判断是否获取对应json数据（shape为列表是从self.get_shape里获取）
+        if not isinstance(shape, list):
+            dataFile = os.path.abspath(__file__ + "/../res/Cdata/{shape}.json".format(shape = shape))
+            if os.path.isfile(dataFile):
+                with open(dataFile, "r") as f:
+                    shape = json.load(f)
+            else:
+                shape = []
         for data in shape:
             # 获取points并将数据转为2X3
             points = data["points"]
@@ -380,6 +381,66 @@ def setScaleControl(axial, scale):
     set_selected_controls(scale = [axial, scale])
 
 
+@undo
+def freezeControl():
+    """
+    冻结控制器
+    :return:
+    """
+    controls = cmds.ls(sl = True, l = True, type = ["joint", "transform"])
+    for ctrl in controls:
+        ToolControl(ctrl).editShapeByCopyCtrl(
+            lambda copyCtrl: cmds.xform(copyCtrl, m = cmds.xform(ctrl, q = True, m = True)))
+        cmds.xform(ctrl, ws = False, m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
+
+
+@undo
+def replaceControl():
+    """
+    替换控制器，以最后所选为准
+    :return:
+    """
+    control = cmds.ls(sl = True, l = True, type = ["joint", "transform"])
+    if control:
+        set_selected_controls("color", "outputs", shape = ToolControl(control[-1]).get_shape())
+
+
+@undo
+def mirrorControl():
+    """
+    镜像控制器（根据"_L"，"_R"）
+    :return:
+    """
+    listL = ["_L", "_l", "_left", "_Left"]
+    listR = ["_R", "_r", "_right", "_Right"]
+    control = cmds.ls(sl = True, l = True, type = ["joint", "transform"])
+    controlSrc = [ctrl for ctrl in control if
+                  any(s in ctrl for s in listR + listL)]
+    controlDst = []
+    # ind = 0
+    for ctrl in controlSrc:
+        # ind += 1
+        bor = [[s, index] for index, s in enumerate(listR) if s in ctrl]
+        bol = [[s, index] for index, s in enumerate(listL) if s in ctrl]
+        # print(ctrl, bor, ind)
+        if bor:
+            controlDst.append(ctrl.replace(listR[bor[0][1]], listL[bor[0][1]]))
+        else:
+            controlDst.append(ctrl.replace(listL[bol[0][1]], listR[bol[0][1]]))
+    for s, d in zip(controlSrc, controlDst):
+        def mirrorCallback(copyCtrl):
+            ToolControl(copyCtrl, shape = ToolControl(s).get_shape())
+            cmds.xform(copyCtrl, ws = True, m = cmds.xform(s, q = True, ws = True, m = True))
+            cmds.makeIdentity(copyCtrl, apply = True, t = True, r = True, s = True)
+            cmds.xform(copyCtrl, piv = [0, 0, 0])
+            cmds.setAttr(copyCtrl + ".sx", -1)
+            cmds.makeIdentity(copyCtrl, apply = True, t = True, r = True, s = True)
+            cmds.xform(copyCtrl, piv = [0, 0, 0])
+            cmds.parent(copyCtrl, d)
+
+        ToolControl(d).editShapeByCopyCtrl(mirrorCallback)
+
+
 class ControlUI(QWidget):
     """
     控制器
@@ -423,6 +484,7 @@ class ControlUI(QWidget):
         self.splitter1 = uiWidget.Splitter(rgb = (54, 52, 61), w = self.width(), h = 10)
         self.splitter2 = uiWidget.Splitter(rgb = (54, 52, 61), w = self.width(), h = 10)
         self.splitter3 = uiWidget.Splitter(rgb = (54, 52, 61), w = self.width(), h = 10)
+        self.splitter4 = uiWidget.Splitter(rgb = (54, 52, 61), w = self.width(), h = 10)
 
     def _createPushBtn(self):
         """
@@ -451,12 +513,21 @@ class ControlUI(QWidget):
         self.rotateZ = QPushButton(u"Z")
         # 缩放
         self.scaleC = QPushButton(u"缩放")
+        # 冻结
+        self.freezeC = QPushButton(u"冻结")
+        # 镜像
+        self.mirrorC = QPushButton(u"镜像")
+        # 替换
+        self.replaceC = QPushButton(u"替换")
         # 设置样式
         self.setColorP.setStyleSheet(qss)
         self.rotateX.setStyleSheet(qss)
         self.rotateY.setStyleSheet(qss)
         self.rotateZ.setStyleSheet(qss)
         self.scaleC.setStyleSheet(qss)
+        self.freezeC.setStyleSheet(qss)
+        self.mirrorC.setStyleSheet(qss)
+        self.replaceC.setStyleSheet(qss)
 
     def _createLabel(self):
         """
@@ -508,6 +579,9 @@ class ControlUI(QWidget):
         self.rotateY.clicked.connect(lambda r: setRotateControl([0, 1, 0], self.rotateLE.text()))
         self.rotateZ.clicked.connect(lambda r: setRotateControl([0, 0, 1], self.rotateLE.text()))
         self.scaleC.clicked.connect(self._scaleConnect)
+        self.freezeC.clicked.connect(freezeControl)
+        self.replaceC.clicked.connect(replaceControl)
+        self.mirrorC.clicked.connect(mirrorControl)
 
     def _scaleConnect(self):
         """
@@ -550,6 +624,13 @@ class ControlUI(QWidget):
         self.hboxLayout2.addWidget(self.scaleLE)
 
         self.mainLayout.addWidget(self.splitter3)
+        self.hboxLayout3 = QHBoxLayout()
+        self.mainLayout.addLayout(self.hboxLayout3)
+        self.hboxLayout3.addWidget(self.freezeC)
+        self.hboxLayout3.addWidget(self.mirrorC)
+        self.hboxLayout3.addWidget(self.replaceC)
+
+        self.mainLayout.addWidget(self.splitter4)
 
 
 class PixmapList(QListWidget):
