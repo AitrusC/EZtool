@@ -4,14 +4,21 @@
 # @Author        : LJF
 # @Contact       : 906629272@qq.com
 
-import os
-import maya.cmds as cmds
-from maya.api.OpenMaya import *
-from . import uiWidget
+"""
+控制器设置
+"""
+
+
+
 import json
+import os
+
+import maya.cmds as cmds
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+from maya.api.OpenMaya import *
+from . import uiWidget
 
 indexRGB = [[0.5, 0.5, 0.5], [0, 0, 0], [0.247, 0.247, 0.247], [0.498, 0.498, 0.498],
             [0.608, 0, 0.157], [0, 0.16, 0.376], [0, 0, 1], [0, 0.275, 0.094],
@@ -491,20 +498,8 @@ class ControlUI(QWidget):
         按钮
         :return:
         """
-        qss = """QPushButton {
-                            background-color: rgb(82, 82, 136);
-                            color: rgb(204, 204, 214);
-                            border: 1px solid;
-                            border-radius: 3px;border-color: rgb(82, 82, 136);
-                            font: bold 10pt \"Microsoft YaHei\";height: 25px;
-                            }
-             QPushButton:hover {
-                            border: rgb(116, 117, 155);
-                            background-color: rgb(116, 117, 155);
-                            }
-             QPushButton:pressed {
-                            background-color: rgb(128, 109, 158);
-                            }"""
+        with open(__file__ + "/../res/qss/QPushButtonA.qss", "r") as f:
+            qss = f.read()
         self.setColorP = QPushButton(u"自定义颜色")
         self.setColorP.setFixedHeight(35)
         # 旋转

@@ -4,12 +4,16 @@
 # @Author        : LJF
 # @Contact       : 906629272@qq.com
 
+"""
+重命名
+"""
+
 from functools import partial
 
 import maya.cmds as cmds
-from . import uiWidget
 from PySide2.QtCore import *
 from PySide2.QtWidgets import *
+from . import uiWidget
 
 
 def undo(fun):
@@ -130,34 +134,10 @@ class ReNameUI(QWidget):
         """
         按钮
         """
-        qss1 = """QPushButton {
-                                background-color: rgb(82, 82, 136);
-                                color: rgb(204, 204, 214);
-                                border: 1px solid;
-                                border-radius: 3px;border-color: rgb(82, 82, 136);
-                                font: bold 10pt \"Microsoft YaHei\";height: 25px;
-                                }
-                QPushButton:hover {
-                                border: rgb(116, 117, 155);
-                                background-color: rgb(116, 117, 155);
-                                }
-                QPushButton:pressed {
-                                background-color: rgb(128, 109, 158);
-                                }"""
-        qss2 = """QPushButton {
-                                background-color: rgb(134, 112, 24);
-                                color: rgb(204, 204, 214);
-                                border: 1px solid;
-                                border-radius: 3px;border-color: rgb(134, 112, 24);
-                                font: bold 10pt \"Microsoft YaHei\";height: 25px;
-                                }
-                QPushButton:hover {
-                                border: rgb(172, 150, 62);
-                                background-color: rgb(172, 150, 62);
-                                }
-                QPushButton:pressed {
-                                background-color: rgb(182, 160, 52);
-                                }"""
+        with open(__file__ + "/../res/qss/QPushButtonA.qss", "r") as f:
+            qss1 = f.read()
+        with open(__file__ + "/../res/qss/QPushButtonB.qss", "r") as f:
+            qss2 = f.read()
         self.pushB1 = QPushButton(u"重命名及编号")
         self.pushB1.setFixedHeight(40)
         self.addGrp = QPushButton("_Grp")
@@ -166,6 +146,8 @@ class ReNameUI(QWidget):
         self.addOffset = QPushButton("_Offset")
         self.addSkin = QPushButton("_Skin")
         self.addDrv = QPushButton("_Drv")
+        self.addR = QPushButton("_R")
+        self.addL = QPushButton("_L")
         self.pushB2 = QPushButton(u"替换")
         self.pushB2.setFixedHeight(40)
 
@@ -176,6 +158,8 @@ class ReNameUI(QWidget):
         self.addOffset.setStyleSheet(qss2)
         self.addSkin.setStyleSheet(qss2)
         self.addDrv.setStyleSheet(qss2)
+        self.addR.setStyleSheet(qss2)
+        self.addL.setStyleSheet(qss2)
         self.pushB2.setStyleSheet(qss1)
 
     def _createConnect(self):
@@ -191,6 +175,8 @@ class ReNameUI(QWidget):
         self.addOffset.clicked.connect(partial(addSuffix, "_Offset"))
         self.addSkin.clicked.connect(partial(addSuffix, "_Skin"))
         self.addDrv.clicked.connect(partial(addSuffix, "_Drv"))
+        self.addR.clicked.connect(partial(addSuffix, "_R"))
+        self.addL.clicked.connect(partial(addSuffix, "_L"))
         self.linePBtn1.button.clicked.connect(self._addP)
         self.linePBtn2.button.clicked.connect(self._addS)
         self.pushB2.clicked.connect(self._replaceN)
@@ -263,6 +249,8 @@ class ReNameUI(QWidget):
         self.gridLayout1.addWidget(self.addOffset, 0, 3)
         self.gridLayout1.addWidget(self.addSkin, 1, 0)
         self.gridLayout1.addWidget(self.addDrv, 1, 1)
+        self.gridLayout1.addWidget(self.addR, 1, 2)
+        self.gridLayout1.addWidget(self.addL, 1, 3)
 
         self.mainLayout.addWidget(self.splitter3)
 

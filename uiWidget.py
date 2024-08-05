@@ -504,11 +504,119 @@ class LineEditPBtn(QWidget):
         self.prefix.setFixedWidth(width)
         self.button.setFixedWidth(width)
 
+    def setText(self, text):
+        """
+        设置文本
+        :param text: 文本
+        :return:
+        """
+        self.line.setText(text)
+
+    def cleanText(self):
+        """
+        清除文本
+        :return:
+        """
+        self.line.clear()
+
     def getText(self):
         """
         获取名称
         """
         return self.line.text()
+
+
+class CollapsibleBox(QWidget):
+    """
+    折叠控件
+            + 折叠控件
+                ||
+            - 折叠控件
+            |- 控件01
+            |- 控件02
+    """
+
+    def __init__(self, title = "", parent = None, animation_duration = 300):
+        """
+        初始化
+        :param title: 标题
+        :param parent: 父对象
+        :param animation_duration: 动画时间
+        """
+        QWidget.__init__(self, parent)
+        self.animation_duration = animation_duration
+        # 创建QToolButton用于激活下拉，checkable-按钮是否可检查 checked-按钮是否被选中
+        self.toggle_button = QToolButton(text = title, checkable = True, checked = False)
+        # 文本将显示在图标旁边。
+        self.toggle_button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        # 设置按钮箭头类型
+        self.toggle_button.setArrowType(Qt.RightArrow)
+        # 点击激活self.on_pressed
+        self.toggle_button.clicked.connect(self.on_pressed)
+        self.toggle_button.setStyleSheet(
+            "QToolButton { font: bold 10pt Microsoft YaHei; border: none; }")
+        # 并行动画容器组。在它启动时将启动组内所有动画，即并行运行所有动画。当持续时间最长的动画结束时，动画组结束。
+        self.toggle_animation = QParallelAnimationGroup()
+        # QScrollArea滚动控件
+        self.content_area = QScrollArea(maximumHeight = 0, minimumHeight = 0)
+        # 设置水平与垂直大小调整策略，QSizePolicy类用于描述一个窗口小部件如何在布局中调整自己的大小。
+        # QSizePolicy.Expanding 用于指示窗口小部件在布局中有能力并且愿意扩展以填充可用空间。
+        # QSizePolicy.Fixed 用于指示窗口小部件应该保持其固定大小，不应进行任何扩展或收缩。
+        self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        # 取消边框
+        self.content_area.setFrameShape(QFrame.NoFrame)
+        # 设置动画QPropertyAnimation(QObject target, QByteArray propertyName, QObject parent)
+        # target为准备进行动画动作的对象，可以不填，不填时动画对象创建后要使用setTargetObject来设置动作对象；
+        # propertyName为动作对象变更的属性，可以不填，不填时动画对象创建并设置动画动作的对象要使用setPropertyName来设置变更的属性.
+        # parent为动作对象的父对象，可以不填，不填默认为None。
+        # 将动画添加到动画组中，分别控制控件最小高度、最大高度和内容区域最大高度
+        self.toggle_animation.addAnimation(QPropertyAnimation(self, b"minimumHeight"))
+        self.toggle_animation.addAnimation(QPropertyAnimation(self, b"maximumHeight"))
+        self.toggle_animation.addAnimation(QPropertyAnimation(self.content_area, b"maximumHeight"))
+        # 构建布局
+        self.main_layout = QVBoxLayout()
+        self.main_layout.setSpacing(0)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.addWidget(self.toggle_button)
+        self.main_layout.addWidget(self.content_area)
+        self.setLayout(self.main_layout)
+
+    @Slot()
+    def on_pressed(self, checked):
+        """
+        播放动画
+        :return:
+        """
+        arrow_type = Qt.DownArrow if checked else Qt.RightArrow
+        direction = QAbstractAnimation.Forward if checked else QAbstractAnimation.Backward
+        self.toggle_button.setArrowType(arrow_type)
+        self.toggle_animation.setDirection(direction)
+        self.toggle_animation.start()
+
+    def setContentLayout(self, content_layout):
+        """
+        添加布局
+        :param content_layout: 布局
+        :return:
+        """
+        # 销毁QScrollArea的子部件
+        self.content_area.destroy()
+        # 添加布局
+        self.content_area.setLayout(content_layout)
+        # 计算折叠和展开时的高度
+        collapsed_height = (self.sizeHint().height() - self.content_area.maximumHeight())
+        content_height = content_layout.sizeHint().height()
+        # 更新动画的开始值和结束值
+        for i in range(self.toggle_animation.animationCount()):
+            # 设置动画值
+            animation = self.toggle_animation.animationAt(i)
+            animation.setDuration(self.animation_duration)
+            animation.setStartValue(collapsed_height)
+            animation.setEndValue(collapsed_height + content_height)
+        content_animation = self.toggle_animation.animationAt(self.toggle_animation.animationCount() - 1)
+        content_animation.setDuration(self.animation_duration)
+        content_animation.setStartValue(0)
+        content_animation.setEndValue(content_height)
 
 
 if __name__ == "__main__":

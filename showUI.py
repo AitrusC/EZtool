@@ -4,14 +4,14 @@
 # @Author        : LJF
 # @Contact       : 906629272@qq.com
 
-from . import uiWidget
-from . import CHtoolW
-from . import remaneT
-from . import control
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
-
+from . import chToolW
+from . import control
+from . import remaneT
+from . import rigT
+from . import uiWidget
 
 
 def get_host_app():
@@ -44,16 +44,19 @@ class EZWindow(QWidget):
             self.tag_lqss = f.read()
         self.left_tag = uiWidget.TadWidget()
         self.left_tag.setStyleSheetLR(lqss = self.tag_lqss, rqss = "")
-        self.widget1 = CHtoolW.CHtoolUI(self)
+        self.widget1 = chToolW.CHtoolUI(self)
         self.widget2 = remaneT.ReNameUI(self)
         self.widget3 = control.ControlUI(self)
+        self.widget4 = rigT.RigToolUi(self)
         self.icon_p1 = QIcon(__file__ + "/../res/images/Gear.png")
         self.icon_p2 = QIcon(__file__ + "/../res/images/REname.png")
         self.icon_p3 = QIcon(__file__ + "/../res/images/controlP.png")
+        self.icon_p4 = QIcon(__file__ + "/../res/images/RigTP.png")
         self.left_tag.addInsertItem(
-            [self.icon_p1, self.icon_p2, self.icon_p3],
-            [self.widget1, self.widget2, self.widget3]
+            [self.icon_p1, self.icon_p2, self.icon_p3, self.icon_p4],
+            [self.widget1, self.widget2, self.widget3, self.widget4]
         )
+        self.left_tag.left_widget.setCurrentRow(0)
         self.main_layout.addWidget(self.left_tag)
 
 

@@ -1,0 +1,3 @@
+import EZtool
+reload(EZtool)
+EZtool.showUI.show()
